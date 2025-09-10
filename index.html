@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="description" content="스마트폰 반응속도 게임" />
+<title>반응 속도 게임</title>
+<style>
+  body{
+    margin:0; font-family:Inter, sans-serif; background:#0f1724; color:#fff;
+    display:flex; align-items:center; justify-content:center; height:100vh; text-align:center;
+  }
+  .container{ max-width:700px; width:100%; padding:20px; }
+  .hidden{ display:none; }
+  input, button{ padding:12px 20px; font-size:16px; border:0; border-radius:8px; margin:6px; }
+  input{ width:80%; }
+  .color-btn{ width:80px; height:40px; cursor:pointer; color:#fff; }
+  #word{ font-size:36px; font-weight:700; margin:30px 0; }
+  #instruction{
+    font-size:32px;
+    font-weight:800;
+    margin-bottom:20px;
+    padding:10px 20px;
+    border-radius:12px;
+    display:inline-block;
+  }
+  .instruction-meaning{ background:#16a34a; color:#fff; }
+  .instruction-color{ background:#dc2626; color:#fff; }
+  #result{ margin-top:20px; font-size:16px; color:#9ca3af; }
+  #summary{ margin-top:30px; font-size:18px; }
+  table{ width:100%; border-collapse:collapse; margin-top:20px; }
+  th, td{ border:1px solid #444; padding:8px; font-size:14px; }
+  th{ background:#1f2937; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div id="start-screen">
+    <h2>반응 속도 게임</h2>
+    <p>안내: 화면에 나타나는 <b>지시 문구</b>에 맞게 색 버튼을 빠르게 눌러주세요.</p>
+    <input type="text" id="username" placeholder="이름을 입력하세요" /> <br>
+    <input type="number" id="rounds" placeholder="라운드 수 (기본 5)" min="1" max="50" /> <br>
+    <button id="start-btn">시작</button>
+  </div>
+
+  <div id="game-screen" class="hidden">
+    <div id="instruction">지시 문구</div>
+    <div id="word">단어</div>
+    <div id="buttons"></div>
+    <div id="result"></div>
+  </div>
+
+  <div id="summary-screen" class="hidden">
+    <h3>게임 결과</h3>
+    <div id="summary"></div>
+    <h4>점수표 (최고점수만 표시)</h4>
+    <table>
+      <thead>
+        <tr><th>이름</th><th>평균 반응속도(ms)</th><th>정답률(%)</th></tr>
+      </thead>
+      <tbody id="scoreboard"></tbody>
+    </table>
+    <button onclick="restart()">다시하기</button>
+  </div>
+</div>
+
+<script>
+const words = ["빨강", "파랑", "초록", "노랑", "보라", "주황", "분홍", "검정", "하늘"];
+const colors = ["red", "blue", "green", "yellow", "purple", "orange", "pink", "gray", "skyblue"];
+const instructions = ["글자 뜻 선택", "글자 색 선택"];
+
+let trialCount = 0;
+let maxTrials = 5;
+let startTime;
+let results = [];
+let currentUser = "";
+
+const startScreen = document.getElementById("start-screen");
+const gameScreen = document.getElementById("game-screen");
+const summaryScreen = document.getElementById("summary-screen");
+const instructionEl = document.getElementById("instruction");
+const wordEl = document.getElementById("word");
+const buttonsEl = document.getElementById("buttons");
+const resultEl = document.getElementById("result");
+const summaryEl = document.getElementById("summary");
+const scoreboardEl = document.getElementById("scoreboard");
+
+document.getElementById("start-btn").addEventListener("click", startGame);
+
+function startGame(){
+  currentUser = document.getElementById("username").value || "사용자";
+  const roundInput = parseInt(document.getElementById("rounds").value);
+  maxTrials = isNaN(roundInput) ? 5 : roundInput;
+
+  startScreen.classList.add("hidden");
+  gameScreen.classList.remove("hidden");
+  trialCount = 0;
+  results = [];
+  nextTrial();
+}
+
+function nextTrial(){
+  if(trialCount >= maxTrials){ endGame(); return; }
+  trialCount++;
+  resultEl.textContent = "";
+
+  const word = words[Math.floor(Math.random()*words.length)];
+  const color = colors[Math.floor(Math.random()*colors.length)];
+  const instruction = instructions[Math.floor(Math.random()*instructions.length)];
+
+  wordEl.textContent = word;
+  wordEl.style.color = color;
+
+  instructionEl.textContent = instruction;
+  instructionEl.className = "";
+  if(instruction === "글자 뜻 선택") instructionEl.classList.add("instruction-meaning");
+  else instructionEl.classList.add("instruction-color");
+
+  buttonsEl.innerHTML = "";
+  colors.forEach(c=>{
+    const btn = document.createElement("button");
+    btn.className = "color-btn";
+    btn.style.background = c === 'gray' ? '#555555' : c;
+    btn.addEventListener("click", ()=> handleAnswer(instruction, word, color, c));
+    buttonsEl.appendChild(btn);
+  });
+
+  startTime = performance.now();
+}
+
+function handleAnswer(instruction, word, color, choice){
+  const reactionTime = (performance.now() - startTime).toFixed(0);
+  let correct;
+  if(instruction === "글자 뜻 선택") correct = (choice === getColorByWord(word));
+  else correct = (choice === color);
+
+  results.push({correct, reactionTime: parseInt(reactionTime)});
+  resultEl.textContent = correct ? `정답! (${reactionTime}ms)` : `오답! (${reactionTime}ms)`;
+  setTimeout(nextTrial, 1000);
+}
+
+function getColorByWord(word){
+  const map = {"빨강":"red", "파랑":"blue", "초록":"green", "노랑":"yellow", "보라":"purple", "주황":"orange", "분홍":"pink", "검정":"gray", "하늘":"skyblue"};
+  return map[word];
+}
+
+function endGame(){
+  gameScreen.classList.add("hidden");
+  summaryScreen.classList.remove("hidden");
+  const avgTime = (results.reduce((a,b)=>a+b.reactionTime,0)/results.length).toFixed(0);
+  const accuracy = ((results.filter(r=>r.correct).length / results.length)*100).toFixed(0);
+  summaryEl.textContent = `${currentUser}님 결과 → 평균 반응 속도: ${avgTime}ms, 정답률: ${accuracy}%`;
+  saveScore(currentUser, avgTime, accuracy);
+  renderScoreboard();
+}
+
+function saveScore(name, avgTime, accuracy){
+  const newScore = {name, avgTime: parseInt(avgTime), accuracy: parseInt(accuracy)};
+  const existing = JSON.parse(localStorage.getItem("score"));
+  if(!existing || newScore.accuracy > existing.accuracy || (newScore.accuracy === existing.accuracy && newScore.avgTime < existing.avgTime)){
+    localStorage.setItem("score", JSON.stringify(newScore));
+  }
+}
+
+function renderScoreboard(){
+  const score = JSON.parse(localStorage.getItem("score"));
+  scoreboardEl.innerHTML = "";
+  if(score){
+    const row = document.createElement("tr");
+    row.innerHTML = `<td>${score.name}</td><td>${score.avgTime}</td><td>${score.accuracy}</td>`;
+    scoreboardEl.appendChild(row);
+  }
+}
+
+function restart(){
+  summaryScreen.classList.add("hidden");
+  startScreen.classList.remove("hidden");
+}
+</script>
+</body>
+</html>
